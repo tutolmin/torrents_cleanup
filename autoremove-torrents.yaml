@@ -1,0 +1,55 @@
+# A task block
+my_task:          # Part 1: Task Name
+  # Part 2: Login Information
+  client: transmission
+  host: http://127.0.0.1:9091
+  username: 
+  password: 
+  # Part 3: Strategies Block (Remove Conditions)
+  strategies:
+#    strategy1:    # Part I: Strategy Name
+      # Part II: Filters
+#      categories:
+#        - IPT
+      # Part III: Remove Condition
+#      ratio: 1
+#      seeding_time: 1209600
+    strategy1:
+#      all_categories: true
+#      excluded_categories:
+#        - IPT
+      excluded_trackers:
+        - plab.site
+      last_activity: 2592000 # 30 days
+#      last_activity: 604800 # week
+#      seeding_time: 259200 # 3 days
+    # Add more strategies here...
+    # Удаляем торренты с ratio < 0.5 (жадные сиды)
+    remove_greedy_seeds:
+      remove: ratio < 0.5 and last_activity > 1296000 and size > 1
+      excluded_trackers:
+        - plab.site
+    
+    # Удаляем неактивные торренты, которые уже достаточно отдали
+    remove_inactive_with_slow_speed:
+      remove: last_activity > 604800 and average_uploadspeed < 1024 and size > 1 
+      excluded_trackers:
+        - plab.site
+
+    # Удаляем старые закачки более 3 мес, у которых уже низкая средняя скорость отдачи
+    remove_older_with_slow_speed:
+#      remove: average_uploadspeed < 0.256 and seeding_time > 31536000
+      remove: average_uploadspeed < 0.512 and seeding_time > 7884000
+      excluded_trackers:
+        - plab.site
+
+    # plab
+    remove_older_plab:
+      remove: average_uploadspeed < 0.128 and seeding_time > 31536000
+      trackers:
+        - plab.site
+
+  # Part 4: Decide whether to remove and delete data (optional)
+  delete_data: true
+
+# Add more tasks here...
