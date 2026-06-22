@@ -5,19 +5,27 @@ import os
 import sys
 from pathlib import Path
 from transmission_rpc import Client
+from dotenv import load_dotenv  # ДОБАВЛЕНО
 
-# ========== НАСТРОЙКИ ==========
-TRANSMISSION_HOST = "127.0.0.1"
-TRANSMISSION_PORT = 9091
-TRANSMISSION_USER = ""
-TRANSMISSION_PASS = ""
+# ========== ЗАГРУЗКА ПЕРЕМЕННЫХ ИЗ .env ==========
+load_dotenv()  # ДОБАВЛЕНО
 
-# ВАЖНО: Укажите путь к вашей папке загрузок
-#DOWNLOAD_DIR = "/mnt/data2/films"  # ЗАМЕНИТЕ НА ВАШ РЕАЛЬНЫЙ ПУТЬ!
-###DOWNLOAD_DIR = "/mnt/data2/series"  # ЗАМЕНИТЕ НА ВАШ РЕАЛЬНЫЙ ПУТЬ!
-#DOWNLOAD_DIR = "/mnt/data2/mults"  # ЗАМЕНИТЕ НА ВАШ РЕАЛЬНЫЙ ПУТЬ!
-#DOWNLOAD_DIR = "/mnt/data2/soft"  # ЗАМЕНИТЕ НА ВАШ РЕАЛЬНЫЙ ПУТЬ!
+# Получаем переменные из окружения (ЗАМЕНЕНО)
+TRANSMISSION_HOST = os.getenv('TRANSMISSION_HOST', '127.0.0.1')
+TRANSMISSION_PORT = int(os.getenv('TRANSMISSION_PORT', 9091))
+TRANSMISSION_USER = os.getenv('TRANSMISSION_USER', '')
+TRANSMISSION_PASS = os.getenv('TRANSMISSION_PASS', '')
+DOWNLOAD_DIR = os.getenv('DOWNLOAD_DIR', '')
+
+# ДОБАВЛЕНО: список расширений для исключения
+EXCLUDED_EXTENSIONS = os.getenv('EXCLUDED_EXTENSIONS', '.part,.tmp').split(',')
+
 # ===============================
+
+def is_excluded_file(filename):  # ДОБАВЛЕНО
+    """Проверяет, нужно ли исключить файл по расширению"""
+    ext = os.path.splitext(filename)[1].lower()
+    return ext in EXCLUDED_EXTENSIONS
 
 def connect_to_transmission():
     """Подключение к Transmission"""
@@ -65,6 +73,7 @@ def find_orphan_files(directory, known_paths, dry_run=True):
     """Поиск файлов-сирот (без обработки папок)"""
     print(f"\n[3] Поиск файлов-сирот в: {directory}")
     print(f"    Режим: {'ПРОСМОТР' if dry_run else 'УДАЛЕНИЕ'}")
+    print(f"    Исключаемые расширения: {', '.join(EXCLUDED_EXTENSIONS)}")  # ДОБАВЛЕНО
 
     if not os.path.exists(directory):
         print(f"[✗] Директория не существует: {directory}")
@@ -72,6 +81,7 @@ def find_orphan_files(directory, known_paths, dry_run=True):
 
     orphan_files = []
     total_files = 0
+    skipped_files = 0  # ДОБАВЛЕНО для статистики
 
     # Исключаемые папки (не заходим внутрь)
     excluded_dirs = {'_incomplete', '.incomplete', 'incomplete', 'temp', 'tmp'}
@@ -86,12 +96,20 @@ def find_orphan_files(directory, known_paths, dry_run=True):
             total_files += 1
             file_path = os.path.join(root, file)
 
+            # ДОБАВЛЕНО: проверка расширения
+            if is_excluded_file(file):
+                skipped_files += 1
+                if dry_run:
+                    print(f"      [ИСКЛЮЧЕН] {file_path}")
+                continue
+
             if file_path not in known_paths:
                 orphan_files.append(file_path)
                 if dry_run:
                     print(f"      [СИРОТА] {file_path}")
 
     print(f"\n[✓] Проверено файлов: {total_files}")
+    print(f"[✓] Исключено по расширению: {skipped_files}")  # ДОБАВЛЕНО
     print(f"[✓] Найдено сирот: {len(orphan_files)}")
 
     return orphan_files
@@ -132,8 +150,8 @@ def main():
     print("ПОИСК ФАЙЛОВ-СИРОТ (не принадлежащих торрентам)")
     print("=" * 60)
 
-    if DOWNLOAD_DIR == "/home/andrei/downloads":
-        print("\n[!] Укажите правильный путь DOWNLOAD_DIR в скрипте!")
+    if not DOWNLOAD_DIR:  # ИЗМЕНЕНО
+        print("\n[!] Укажите DOWNLOAD_DIR в файле .env!")
         sys.exit(1)
 
     dry_run = True  # False для реального удаления
